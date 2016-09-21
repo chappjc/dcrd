@@ -70,6 +70,12 @@ type GetTicketsVoteBitsResult struct {
 	VoteBitsList []VoteBitsData `json:"votebitslist"`
 }
 
+// GetTicketMaxPriceResult models the data returned from the getticketmaxprice
+// command.
+type GetTicketMaxPriceResult struct {
+	MaxPrice float64 `json:"ticketmaxprice"`
+}
+
 // ScriptInfo is the structure representing a redeem script, its hash,
 // and its address.
 type ScriptInfo struct {
