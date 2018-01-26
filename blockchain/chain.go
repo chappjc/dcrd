@@ -227,6 +227,8 @@ type BlockChain struct {
 	index    map[chainhash.Hash]*blockNode
 	depNodes map[chainhash.Hash][]*blockNode
 
+	poolSizes map[int64]int
+
 	// These fields are related to handling of orphan blocks.  They are
 	// protected by a combination of the chain lock and the orphan lock.
 	orphanLock     sync.RWMutex
@@ -1114,6 +1116,18 @@ func dbMaybeStoreBlock(dbTx database.Tx, block *dcrutil.Block) error {
 	return dbTx.StoreBlock(block)
 }
 
+type blahbler struct {
+	Height []int64 `json:"height"`
+	Size   []int   `json:"size"`
+}
+
+func (b blahbler) Len() int           { return len(b.Height) }
+func (b blahbler) Less(i, j int) bool { return b.Height[i] < b.Height[j] }
+func (b blahbler) Swap(i, j int) {
+	b.Height[i], b.Height[j] = b.Height[j], b.Height[i]
+	b.Size[i], b.Size[j] = b.Size[j], b.Size[i]
+}
+
 // connectBlock handles connecting the passed node/block to the end of the main
 // (best) chain.
 //
@@ -1240,7 +1254,8 @@ func (b *BlockChain) connectBlock(node *blockNode, block *dcrutil.Block, view *U
 
 	// Dump list of live tickets to disk
 	hs := node.stakeNode.LiveTickets()
-	ticketPool := make([]string, 0, len(hs))
+	b.poolSizes[node.height] = len(hs)
+	/*ticketPool := make([]string, 0, len(hs))
 	for i := range hs {
 		ticketPool = append(ticketPool, hs[i].String())
 	}
@@ -1250,6 +1265,24 @@ func (b *BlockChain) connectBlock(node *blockNode, block *dcrutil.Block, view *U
 	poolFile := fmt.Sprintf("ticketpool-%d.json", node.height)
 	if err = ioutil.WriteFile(poolFile, ticketPoolJSON, 0644); err != nil {
 		log.Errorf("Couldn't write ticket pool file: %s", poolFile)
+	}*/
+	if node.height == 206866 {
+		sizes := make([]int, 0, len(b.poolSizes))
+		heights := make([]int64, 0, len(b.poolSizes))
+		for h, s := range b.poolSizes {
+			sizes = append(sizes, s)
+			heights = append(heights, h)
+		}
+		blah := blahbler{
+			Height: heights,
+			Size:   sizes,
+		}
+		sort.Sort(blah)
+		ticketPoolJSON, _ := json.MarshalIndent(blah, "", "   ")
+		poolSizeFile := fmt.Sprintf("ticketpoolsizes.json")
+		if err = ioutil.WriteFile(poolSizeFile, ticketPoolJSON, 0644); err != nil {
+			log.Errorf("Couldn't write ticket pool size file: %s", poolSizeFile)
+		}
 	}
 
 	// Add the new node to the memory main chain indices for faster
@@ -2227,6 +2260,7 @@ func New(config *Config) (*BlockChain, error) {
 		checkpointsByHeight:           checkpointsByHeight,
 		db:                            config.DB,
 		chainParams:                   params,
+		poolSizes:                     make(map[int64]int),
 		timeSource:                    config.TimeSource,
 		notifications:                 config.Notifications,
 		sigCache:                      config.SigCache,
