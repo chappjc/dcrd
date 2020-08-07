@@ -469,6 +469,14 @@ func (r FutureSignRawTransactionResult) Receive() (*wire.MsgTx, bool, error) {
 		return nil, false, err
 	}
 
+	if len(signRawTxResult.Errors) > 0 {
+		for i := range signRawTxResult.Errors {
+			sigErr := &signRawTxResult.Errors[i]
+			log.Warnf("Signing %v:%d, seq = %d, sigScript = %v, failed: %v",
+				sigErr.TxID, sigErr.Vout, sigErr.Sequence, sigErr.ScriptSig, sigErr.Error)
+		}
+	}
+
 	return &msgTx, signRawTxResult.Complete, nil
 }
 
