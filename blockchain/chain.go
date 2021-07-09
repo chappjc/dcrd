@@ -150,6 +150,11 @@ type BlockChain struct {
 	// values.
 	subsidyCache *standalone.SubsidyCache
 
+	// processLock protects concurrent access to overall chain processing
+	// independent from the chain lock which is periodically released to
+	// send notifications.
+	processLock sync.Mutex
+
 	// chainLock protects concurrent access to the vast majority of the
 	// fields in this struct below this point.
 	chainLock sync.RWMutex
@@ -1291,9 +1296,11 @@ func (b *BlockChain) forceHeadReorganization(formerBest chainhash.Hash, newBest 
 //
 // This function is safe for concurrent access.
 func (b *BlockChain) ForceHeadReorganization(formerBest chainhash.Hash, newBest chainhash.Hash) error {
+	b.processLock.Lock()
 	b.chainLock.Lock()
 	err := b.forceHeadReorganization(formerBest, newBest)
 	b.chainLock.Unlock()
+	b.processLock.Unlock()
 	return err
 }
 

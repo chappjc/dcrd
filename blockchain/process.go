@@ -47,8 +47,10 @@ const (
 //
 // This function is safe for concurrent access.
 func (b *BlockChain) ProcessBlock(block *dcrutil.Block, flags BehaviorFlags) (int64, error) {
-	b.chainLock.Lock()
-	defer b.chainLock.Unlock()
+	// Since the chain lock is periodically released to send notifications,
+	// protect the overall processing of blocks with a separate mutex.
+	b.processLock.Lock()
+	defer b.processLock.Unlock()
 
 	blockHash := block.Hash()
 	log.Tracef("Processing block %v", blockHash)
@@ -70,6 +72,9 @@ func (b *BlockChain) ProcessBlock(block *dcrutil.Block, flags BehaviorFlags) (in
 	if err != nil {
 		return 0, err
 	}
+
+	b.chainLock.Lock()
+	defer b.chainLock.Unlock()
 
 	// This function should never be called with orphans or the genesis block.
 	blockHeader := &block.MsgBlock().Header
